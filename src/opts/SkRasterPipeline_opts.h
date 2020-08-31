@@ -292,12 +292,13 @@ namespace SK_OPTS_NS {
 
 #if defined(JUMPER_IS_SCALAR)
     // This path should lead to portable scalar code.
-    using F   = float   ;
-    using I32 =  int32_t;
-    using U64 = uint64_t;
-    using U32 = uint32_t;
-    using U16 = uint16_t;
-    using U8  = uint8_t ;
+    template <typename T> using V = Polyfill<T,1>;
+    using F   = V<float   >;
+    using I32 = V< int32_t>;
+    using U64 = V<uint64_t>;
+    using U32 = V<uint32_t>;
+    using U16 = V<uint16_t>;
+    using U8  = V<uint8_t >;
 
     SI F   mad(F f, F m, F a)   { return f*m+a; }
     SI F   min(F a, F b)        { return fminf(a,b); }
@@ -855,7 +856,7 @@ namespace SK_OPTS_NS {
     }
 
 #elif defined(JUMPER_IS_SSE2) || defined(JUMPER_IS_SSE41)
-    template <typename T> using V = T __attribute__((ext_vector_type(4)));
+    template <typename T> using V = Polyfill<T,4>;
     using F   = V<float   >;
     using I32 = V< int32_t>;
     using U64 = V<uint64_t>;
@@ -866,7 +867,7 @@ namespace SK_OPTS_NS {
     SI F   mad(F f, F m, F a)  { return f*m+a;              }
     SI F   min(F a, F b)       { return _mm_min_ps(a,b);    }
     SI F   max(F a, F b)       { return _mm_max_ps(a,b);    }
-    SI F   abs_(F v)           { return _mm_and_ps(v, 0-v); }
+    SI F   abs_(F v)           { return _mm_and_ps(v, -v); }
     SI F   rcp   (F v)         { return _mm_rcp_ps  (v);    }
     SI F   rsqrt (F v)         { return _mm_rsqrt_ps(v);    }
     SI F    sqrt_(F v)         { return _mm_sqrt_ps (v);    }
@@ -1088,18 +1089,6 @@ namespace SK_OPTS_NS {
     }
 #endif
 
-// We need to be a careful with casts.
-// (F)x means cast x to float in the portable path, but bit_cast x to float in the others.
-// These named casts and bit_cast() are always what they seem to be.
-#if defined(JUMPER_IS_SCALAR)
-    SI F   cast  (U32 v) { return   (F)v; }
-    SI F   cast64(U64 v) { return   (F)v; }
-    SI U32 trunc_(F   v) { return (U32)v; }
-    SI U32 expand(U16 v) { return (U32)v; }
-    SI U32 expand(U8  v) { return (U32)v; }
-#else
-#endif
-
 template <typename V>
 SI V if_then_else(I32 c, V t, V e) {
     return sk_bit_cast<V>(if_then_else(c, sk_bit_cast<F>(t), sk_bit_cast<F>(e)));
@@ -1166,14 +1155,14 @@ SI F from_half(U16 h) {
 
 #else
     // Remember, a half is 1-5-10 (sign-exponent-mantissa) with 15 exponent bias.
-    U32 sem = expand(h),
+    U32 sem = h.convert<U32>(),
         s   = sem & 0x8000,
          em = sem ^ s;
 
     // Convert to 1-8-23 float with 127 bias, flushing denorm halfs (including zero) to zero.
-    auto denorm = (I32)em < 0x0400;      // I32 comparison is often quicker, and always safe here.
+    auto denorm = (I32)em < I32(0x0400);      // I32 comparison is often quicker, and always safe here.
     return if_then_else(denorm, F(0)
-                              , sk_bit_cast<F>( (s<<16) + (em<<13) + ((127-15)<<23) ));
+                              , sk_bit_cast<F>( (s<<16) + (em<<13) + U32((127-15)<<23) ));
 #endif
 }
 
@@ -1188,11 +1177,11 @@ SI U16 to_half(F f) {
 #else
     // Remember, a float is 1-8-23 (sign-exponent-mantissa) with 127 exponent bias.
     U32 sem = sk_bit_cast<U32>(f),
-        s   = sem & 0x80000000,
+        s   = sem & U32(0x80000000),
          em = sem ^ s;
 
     // Convert to 1-5-10 half with 15 bias, flushing denorm halfs (including zero) to zero.
-    auto denorm = (I32)em < 0x38800000;  // I32 comparison is often quicker, and always safe here.
+    auto denorm = (I32)em < I32(0x38800000);  // I32 comparison is often quicker, and always safe here.
     return pack(if_then_else(denorm, U32(0)
                                    , (s>>16) + (em>>13) - ((127-15)<<10)));
 #endif
