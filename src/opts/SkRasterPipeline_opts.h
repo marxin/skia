@@ -1691,7 +1691,7 @@ SI void set_sat(F* r, F* g, F* b, F s) {
 
     // Map min channel to 0, max channel to s, and scale the middle proportionally.
     auto scale = [=](F c) {
-        return if_then_else(F(sat) == F(0.0f), 0.0f, (c - mn) * s / sat);
+        return if_then_else(F(sat) == F(0), 0, (c - mn) * s / sat);
     };
     *r = scale(*r);
     *g = scale(*g);
@@ -1709,7 +1709,7 @@ SI void clip_color(F* r, F* g, F* b, F a) {
       l  = lum(*r, *g, *b);
 
     auto clip = [=](F c) {
-        c = if_then_else(F(mn) >= F(0.0f), c, l + (c - l) * (    l) / (l - mn)   );
+        c = if_then_else(F(mn) >= F(0), c, l + (c - l) * (    l) / (l - mn)   );
         c = if_then_else(F(mx) >  F(a),    l + (c - l) * (a - l) / (mx - l), c);
         c = max(c, 0);  // Sometimes without this we may dip just a little negative.
         return c;
@@ -1874,7 +1874,7 @@ STAGE(premul_dst, Ctx::None) {
 }
 STAGE(unpremul, Ctx::None) {
     float inf = sk_bit_cast<float>(0x7f800000);
-    auto scale = if_then_else(F(1)/a < F(inf), F(1)/a, F(0));
+    auto scale = if_then_else(F(1.0f)/a < F(inf), F(1.0f)/a, F(0));
     r *= scale;
     g *= scale;
     b *= scale;
@@ -2073,7 +2073,7 @@ STAGE(PQish, const skcms_TransferFunction* ctx) {
         U32 sign;
         v = strip_sign(v, &sign);
 
-        F r = approx_powf(max(mad(ctx->b, approx_powf(v, ctx->c), ctx->a), 0.0f)
+        F r = approx_powf(max(mad(ctx->b, approx_powf(v, ctx->c), ctx->a), 0)
                            / (mad(ctx->e, approx_powf(v, ctx->c), ctx->d)),
                         ctx->f);
 
@@ -2092,7 +2092,7 @@ STAGE(HLGish, const skcms_TransferFunction* ctx) {
         const float R = ctx->a, G = ctx->b,
                     a = ctx->c, b = ctx->d, c = ctx->e;
 
-        F r = if_then_else(v*R <= F(1.0f), approx_powf(v*R, G)
+        F r = if_then_else(v*R <= F(1), approx_powf(v*R, G)
                                    , approx_exp((v-c)*a) + b);
 
         return apply_sign(r, sign);
@@ -2110,7 +2110,7 @@ STAGE(HLGinvish, const skcms_TransferFunction* ctx) {
         const float R = ctx->a, G = ctx->b,
                     a = ctx->c, b = ctx->d, c = ctx->e;
 
-        F r = if_then_else(v <= F(1.0f), F(R) * approx_powf(v, G)
+        F r = if_then_else(v <= F(1), F(R) * approx_powf(v, G)
                                  , F(a) * approx_log(v - b) + c);
 
         return apply_sign(r, sign);
@@ -2515,17 +2515,17 @@ STAGE(mirror_x_1, Ctx::None) { r = clamp_01(abs_( (r-1.0f) - two(floor_((r-1.0f)
 
 STAGE(decal_x, SkRasterPipeline_DecalTileCtx* ctx) {
     auto w = ctx->limit_x;
-    sk_unaligned_store(ctx->mask, cond_to_mask((F(0.0f) <= r) & (r < F(w))));
+    sk_unaligned_store(ctx->mask, cond_to_mask((F(0) <= r) & (r < F(w))));
 }
 STAGE(decal_y, SkRasterPipeline_DecalTileCtx* ctx) {
     auto h = ctx->limit_y;
-    sk_unaligned_store(ctx->mask, cond_to_mask((F(0.0f) <= g) & (g < F(h))));
+    sk_unaligned_store(ctx->mask, cond_to_mask((F(0) <= g) & (g < F(h))));
 }
 STAGE(decal_x_and_y, SkRasterPipeline_DecalTileCtx* ctx) {
     auto w = ctx->limit_x;
     auto h = ctx->limit_y;
     sk_unaligned_store(ctx->mask,
-                    cond_to_mask((F(0.0f) <= r) & (r < F(w)) & (F(0.0f) <= g) & (g < F(h))));
+                    cond_to_mask((F(0) <= r) & (r < F(w)) & (F(0) <= g) & (g < F(h))));
 }
 STAGE(check_decal_mask, SkRasterPipeline_DecalTileCtx* ctx) {
     auto mask = sk_unaligned_load<U32>(ctx->mask);
@@ -2736,7 +2736,7 @@ STAGE(alter_2pt_conical_compensate_focal, const SkRasterPipeline_2PtConicalCtx* 
 
 STAGE(alter_2pt_conical_unswap, Ctx::None) {
     F& t = r;
-    t = F(1.0f) - t;
+    t = F(1) - t;
 }
 
 STAGE(mask_2pt_conical_nan, SkRasterPipeline_2PtConicalCtx* c) {
@@ -2797,7 +2797,7 @@ SI void bilinear_x(SkRasterPipeline_SamplerCtx* ctx, F* x) {
     F fx = sk_unaligned_load<F>(ctx->fx);
 
     F scalex;
-    if (kScale == -1) { scalex = F(1) - fx; }
+    if (kScale == -1) { scalex = F(1.0f) - fx; }
     if (kScale == +1) { scalex =        fx; }
     sk_unaligned_store(ctx->scalex, scalex);
 }
@@ -2807,7 +2807,7 @@ SI void bilinear_y(SkRasterPipeline_SamplerCtx* ctx, F* y) {
     F fy = sk_unaligned_load<F>(ctx->fy);
 
     F scaley;
-    if (kScale == -1) { scaley = F(1) - fy; }
+    if (kScale == -1) { scaley = F(1.0f) - fy; }
     if (kScale == +1) { scaley =        fy; }
     sk_unaligned_store(ctx->scaley, scaley);
 }
@@ -2839,8 +2839,8 @@ SI void bicubic_x(SkRasterPipeline_SamplerCtx* ctx, F* x) {
     F fx = sk_unaligned_load<F>(ctx->fx);
 
     F scalex;
-    if (kScale == -3) { scalex = bicubic_far (F(1) - fx); }
-    if (kScale == -1) { scalex = bicubic_near(F(1) - fx); }
+    if (kScale == -3) { scalex = bicubic_far (F(1.0f) - fx); }
+    if (kScale == -1) { scalex = bicubic_near(F(1.0f) - fx); }
     if (kScale == +1) { scalex = bicubic_near(       fx); }
     if (kScale == +3) { scalex = bicubic_far (       fx); }
     sk_unaligned_store(ctx->scalex, scalex);
@@ -2851,8 +2851,8 @@ SI void bicubic_y(SkRasterPipeline_SamplerCtx* ctx, F* y) {
     F fy = sk_unaligned_load<F>(ctx->fy);
 
     F scaley;
-    if (kScale == -3) { scaley = bicubic_far (F(1) - fy); }
-    if (kScale == -1) { scaley = bicubic_near(F(1) - fy); }
+    if (kScale == -3) { scaley = bicubic_far (F(1.0f) - fy); }
+    if (kScale == -1) { scaley = bicubic_near(F(1.0f) - fy); }
     if (kScale == +1) { scaley = bicubic_near(       fy); }
     if (kScale == +3) { scaley = bicubic_far (       fy); }
     sk_unaligned_store(ctx->scaley, scaley);
@@ -2958,8 +2958,8 @@ STAGE(bilinear, const SkRasterPipeline_SamplerCtx2* ctx) {
 STAGE(bicubic, SkRasterPipeline_SamplerCtx2* ctx) {
     F x = r, fx = fract(x + 0.5f),
       y = g, fy = fract(y + 0.5f);
-    const F wx[] = { bicubic_far(F(1)-fx), bicubic_near(F(1.0f)-fx), bicubic_near(fx), bicubic_far(fx) };
-    const F wy[] = { bicubic_far(F(1)-fy), bicubic_near(F(1.0f)-fy), bicubic_near(fy), bicubic_far(fy) };
+    const F wx[] = { bicubic_far(F(1)-fx), bicubic_near(F(1)-fx), bicubic_near(fx), bicubic_far(fx) };
+    const F wy[] = { bicubic_far(F(1)-fy), bicubic_near(F(1)-fy), bicubic_near(fy), bicubic_far(fy) };
 
     sampler(ctx, x,y, wx,wy, &r,&g,&b,&a);
 }
@@ -3021,11 +3021,11 @@ STAGE(bicubic_clamp_8888, const SkRasterPipeline_GatherCtx* ctx) {
     r = g = b = a = 0;
 
     const F scaley[4] = {
-        bicubic_far (F(1) - fy), bicubic_near(F(1) - fy),
+        bicubic_far (F(1.0f) - fy), bicubic_near(F(1) - fy),
         bicubic_near(       fy), bicubic_far (       fy),
     };
     const F scalex[4] = {
-        bicubic_far (F(1) - fx), bicubic_near(F(1) - fx),
+        bicubic_far (F(1.0f) - fx), bicubic_near(F(1) - fx),
         bicubic_near(       fx), bicubic_far (       fx),
     };
 
