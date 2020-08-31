@@ -37,7 +37,7 @@ struct Polyfill {
    /*implicit*/ operator U() const { return sk_bit_cast<U>(v); }
 
    template <class U>
-   U cast() { return U(__builtin_convertvector(v, typename U::Vec)); }
+   U convert() { return U(__builtin_convertvector(v, typename U::Vec)); }
 
    Polyfill operator&(const int &mask) const
    {
@@ -1123,7 +1123,7 @@ SI F fract(F v) { return v - floor_(v.v); }
 // See http://www.machinedlearnings.com/2011/06/fast-approximate-logarithm-exponential.html.
 SI F approx_log2(F x) {
     // e - 127 is a fair approximation of log2(x) in its own right...
-    F e = (sk_bit_cast<U32>(x)).cast<F>() * (1.0f / (1<<23));
+    F e = (sk_bit_cast<U32>(x)).convert<F>() * (1.0f / (1<<23));
 
     // ... but using the mantissa to refine its error is _much_ better.
     F m = sk_bit_cast<F>((sk_bit_cast<U32>(x) & 0x007fffff) | 0x3f000000);
@@ -1418,50 +1418,50 @@ SI void store(uint16_t * dst, V v, size_t tail) {
 }
 
 SI F from_byte(U8 b) {
-    return b.cast<U32>().cast<F>() * (1/255.0f);
+    return b.convert<U32>().convert<F>() * (1/255.0f);
 }
 SI F from_short(U16 s) {
-    return s.cast<U32>().cast<F>() * (1/65535.0f);
+    return s.convert<U32>().convert<F>() * (1/65535.0f);
 }
 SI void from_565(U16 _565, F* r, F* g, F* b) {
-    U32 wide = _565.cast<U32>();
-    *r = (wide & (31<<11)).cast<F>() * (1.0f / (31<<11));
-    *g = (wide & (63<< 5)).cast<F>() * (1.0f / (63<< 5));
-    *b = (wide & (31<< 0)).cast<F>() * (1.0f / (31<< 0));
+    U32 wide = _565.convert<U32>();
+    *r = (wide & (31<<11)).convert<F>() * (1.0f / (31<<11));
+    *g = (wide & (63<< 5)).convert<F>() * (1.0f / (63<< 5));
+    *b = (wide & (31<< 0)).convert<F>() * (1.0f / (31<< 0));
 }
 SI void from_4444(U16 _4444, F* r, F* g, F* b, F* a) {
-    U32 wide = _4444.cast<U32>();
-    *r = (wide & (15<<12)).cast<F>() * (1.0f / (15<<12));
-    *g = (wide & (15<< 8)).cast<F>() * (1.0f / (15<< 8));
-    *b = (wide & (15<< 4)).cast<F>() * (1.0f / (15<< 4));
-    *a = (wide & (15<< 0)).cast<F>() * (1.0f / (15<< 0));
+    U32 wide = _4444.convert<U32>();
+    *r = (wide & (15<<12)).convert<F>() * (1.0f / (15<<12));
+    *g = (wide & (15<< 8)).convert<F>() * (1.0f / (15<< 8));
+    *b = (wide & (15<< 4)).convert<F>() * (1.0f / (15<< 4));
+    *a = (wide & (15<< 0)).convert<F>() * (1.0f / (15<< 0));
 }
 SI void from_8888(U32 _8888, F* r, F* g, F* b, F* a) {
-    *r = ((_8888      ) & 0xff).cast<F>() * (1/255.0f);
-    *g = ((_8888 >>  8) & 0xff).cast<F>() * (1/255.0f);
-    *b = ((_8888 >> 16) & 0xff).cast<F>() * (1/255.0f);
-    *a = ((_8888 >> 24)       ).cast<F>() * (1/255.0f);
+    *r = ((_8888      ) & 0xff).convert<F>() * (1/255.0f);
+    *g = ((_8888 >>  8) & 0xff).convert<F>() * (1/255.0f);
+    *b = ((_8888 >> 16) & 0xff).convert<F>() * (1/255.0f);
+    *a = ((_8888 >> 24)       ).convert<F>() * (1/255.0f);
 }
 SI void from_88(U16 _88, F* r, F* g) {
-    U32 wide = _88.cast<U32> ();
-    *r = ((wide      ) & 0xff).cast<F>() * (1/255.0f);
-    *g = ((wide >>  8) & 0xff).cast<F>() * (1/255.0f);
+    U32 wide = _88.convert<U32> ();
+    *r = ((wide      ) & 0xff).convert<F>() * (1/255.0f);
+    *g = ((wide >>  8) & 0xff).convert<F>() * (1/255.0f);
 }
 SI void from_1010102(U32 rgba, F* r, F* g, F* b, F* a) {
-    *r = ((rgba      ) & 0x3ff).cast<F>() * (1/1023.0f);
-    *g = ((rgba >> 10) & 0x3ff).cast<F>() * (1/1023.0f);
-    *b = ((rgba >> 20) & 0x3ff).cast<F>() * (1/1023.0f);
-    *a = ((rgba >> 30)        ).cast<F>() * (1/   3.0f);
+    *r = ((rgba      ) & 0x3ff).convert<F>() * (1/1023.0f);
+    *g = ((rgba >> 10) & 0x3ff).convert<F>() * (1/1023.0f);
+    *b = ((rgba >> 20) & 0x3ff).convert<F>() * (1/1023.0f);
+    *a = ((rgba >> 30)        ).convert<F>() * (1/   3.0f);
 }
 SI void from_1616(U32 _1616, F* r, F* g) {
-    *r = ((_1616      ) & 0xffff).cast<F>() * (1/65535.0f);
-    *g = ((_1616 >> 16) & 0xffff).cast<F>() * (1/65535.0f);
+    *r = ((_1616      ) & 0xffff).convert<F>() * (1/65535.0f);
+    *g = ((_1616 >> 16) & 0xffff).convert<F>() * (1/65535.0f);
 }
 SI void from_16161616(U64 _16161616, F* r, F* g, F* b, F* a) {
-    *r = ((_16161616      ) & U64(0xffff)).cast<F>() * (1/65535.0f);
-    *g = ((_16161616 >> 16) & 0xffff).cast<F>() * (1/65535.0f);
-    *b = ((_16161616 >> 32) & 0xffff).cast<F>() * (1/65535.0f);
-    *a = ((_16161616 >> 48) & 0xffff).cast<F>() * (1/65535.0f);
+    *r = ((_16161616      ) & U64(0xffff)).convert<F>() * (1/65535.0f);
+    *g = ((_16161616 >> 16) & 0xffff).convert<F>() * (1/65535.0f);
+    *b = ((_16161616 >> 32) & 0xffff).convert<F>() * (1/65535.0f);
+    *a = ((_16161616 >> 48) & 0xffff).convert<F>() * (1/65535.0f);
 }
 
 // Used by load_ and store_ stages to get to the right (dx,dy) starting point of contiguous memory.
@@ -1483,7 +1483,7 @@ SI U32 ix_and_ptr(T** ptr, const SkRasterPipeline_GatherCtx* ctx, F x, F y) {
     y = clamp(y, ctx->height);
 
     *ptr = (const T*)ctx->pixels;
-    return y.cast<U32>() * U32((uint32_t)ctx->stride) + x.cast<U32>();
+    return y.convert<U32>() * U32((uint32_t)ctx->stride) + x.convert<U32>();
 }
 
 // We often have a nominally [0,1] float value we need to scale and convert to an integer,
@@ -1511,8 +1511,8 @@ STAGE(seed_shader, Ctx::None) {
     // It's important for speed to explicitly cast(dx) and cast(dy),
     // which has the effect of splatting them to vectors before converting to floats.
     // On Intel this breaks a data dependency on previous loop iterations' registers.
-    r = U64(dx).cast<F>() + sk_unaligned_load<F>(iota);
-    g = U64(dy).cast<F>() + 0.5f;
+    r = U64(dx).convert<F>() + sk_unaligned_load<F>(iota);
+    g = U64(dy).convert<F>() + 0.5f;
     b = 1.0f;
     a = 0;
     dr = dg = db = da = 0;
@@ -1521,8 +1521,8 @@ STAGE(seed_shader, Ctx::None) {
 STAGE(dither, const float* rate) {
     // Get [(dx,dy), (dx+1,dy), (dx+2,dy), ...] loaded up in integer vectors.
     uint32_t iota[] = {0,1,2,3,4,5,6,7};
-    U32 X = U64(dx).cast<U32>() + sk_unaligned_load<U32>(iota),
-        Y = U64(dy).cast<U32>();
+    U32 X = U64(dx).convert<U32>() + sk_unaligned_load<U32>(iota),
+        Y = U64(dy).convert<U32>();
 
     // We're doing 8x8 ordered dithering, see https://en.wikipedia.org/wiki/Ordered_dithering.
     // In this case n=8 and we're using the matrix that looks like 1/64 x [ 0 48 12 60 ... ].
@@ -1539,7 +1539,7 @@ STAGE(dither, const float* rate) {
     // Scale that dither to [0,1), then (-0.5,+0.5), here using 63/128 = 0.4921875 as 0.5-epsilon.
     // We want to make sure our dither is less than 0.5 in either direction to keep exact values
     // like 0 and 1 unchanged after rounding.
-    F dither = M.cast<F>() * (2/128.0f) - (63/128.0f);
+    F dither = M.convert<F>() * (2/128.0f) - (63/128.0f);
 
     r += F(*rate)*dither;
     g += F(*rate)*dither;
@@ -1806,10 +1806,10 @@ STAGE(srcover_rgba_8888, const SkRasterPipeline_MemoryCtx* ctx) {
     auto ptr = ptr_at_xy<uint32_t>(ctx, dx,dy);
 
     U32 dst = load<U32>(ptr, tail);
-    dr = ((dst      ) & 0xff).cast<F>();
-    dg = ((dst >>  8) & 0xff).cast<F>();
-    db = ((dst >> 16) & 0xff).cast<F>();
-    da = ((dst >> 24)       ).cast<F>();
+    dr = ((dst      ) & 0xff).convert<F>();
+    dg = ((dst >>  8) & 0xff).convert<F>();
+    db = ((dst >> 16) & 0xff).convert<F>();
+    da = ((dst >> 24)       ).convert<F>();
     // {dr,dg,db,da} are in [0,255]
     // { r, g, b, a} are in [0,  1] (but may be out of gamut)
 
@@ -2668,7 +2668,7 @@ SI void gradient_lookup(const SkRasterPipeline_GradientCtx* c, U32 idx, F t,
 
 STAGE(evenly_spaced_gradient, const SkRasterPipeline_GradientCtx* c) {
     auto t = r;
-    auto idx = (t * F((float)c->stopCount-1)).cast<U32>();
+    auto idx = (t * F((float)c->stopCount-1)).convert<U32>();
     gradient_lookup(c, idx, t, &r, &g, &b, &a);
 }
 
