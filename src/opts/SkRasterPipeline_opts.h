@@ -23,17 +23,12 @@ struct Polyfill {
    // Auto-broadcast from scalar.
    /*implicit*/ Polyfill(T x) : v(Vec() + x) {}
 
+   Polyfill(Vec vec): v(vec) {}
+
    // Initialize using braces, Polyfill<...> foo = { 0,1,2,3, ...}.
    /*implicit*/ Polyfill(std::initializer_list<T> vals) {
        __builtin_memcpy(&v, vals.begin(), sizeof(T) * vals.size());
    }
-
-   // TODO: use only __m256i
-   Polyfill(__m256 x): v(sk_bit_cast<Vec>(x)) {}
-   Polyfill(__m256i x): v(sk_bit_cast<Vec>(x)) {}
-
-   Polyfill(__m128 x): v(sk_bit_cast<Vec>(x)) {}
-   Polyfill(__m128i x): v(sk_bit_cast<Vec>(x)) {}
 
    // Auto-bit-pun to same-sized types.
    template <typename U>
@@ -51,14 +46,12 @@ struct Polyfill {
 
    Polyfill operator-(const float &value) const
    {
-     Polyfill r = Polyfill (v - value);
-     return r;
+     return v - value;
    }
 
    Polyfill operator-(const int &value) const
    {
-     Polyfill r = Polyfill (v - value);
-     return r;
+     return v - value;
    }
 
    Polyfill operator+(const float &value) const
@@ -68,42 +61,38 @@ struct Polyfill {
 
    Polyfill operator*(const float &value) const
    {
-     return Polyfill(v * value);
+     return v * value;
    }
 
-   Polyfill operator*=(const float &value)
+   Polyfill &operator*=(const float &value)
    {
      v *= value;
      return *this;
    }
 
-   Polyfill &operator-()
+   Polyfill operator-() const
    {
-     v = -v;
-     return *this;
+     return -v;
    }
 
    BoolVec operator!()
    {
-     return v == Vec();
+     return v == 0;
    }
 
-   Polyfill &operator<<(int k)
+   Polyfill operator<<(int k) const
    {
-     v <<= k;
-     return *this;
+     return v << k;
    }
 
-   Polyfill &operator>>(int k)
+   Polyfill operator>>(int k) const
    {
-     v >>= k;
-     return *this;
+     return v >> k;
    }
 
-   Polyfill &operator|(int k)
+   Polyfill operator|(int k) const
    {
-     v |= k;
-     return *this;
+     return v | k;
    }
 
    BoolVec operator==(const Polyfill &value)
@@ -138,21 +127,17 @@ struct Polyfill {
 
    Polyfill operator&(const Polyfill &value) const
    {
-     Polyfill r = *this;
-     r.v &= value.v;
-     return r;
+     return v & value.v;
    }
 
-   Polyfill &operator|(const Polyfill &value)
+   Polyfill operator|(const Polyfill &value) const
    {
-     v |= value.v;
-     return *this;
+     return v | value.v;
    }
 
-   Polyfill &operator^(const Polyfill &value)
+   Polyfill operator^(const Polyfill &value) const
    {
-     v ^= value.v;
-     return *this;
+     return v ^ value.v;
    }
 
    Polyfill operator-(const Polyfill &value) const
@@ -162,20 +147,18 @@ struct Polyfill {
 
    Polyfill operator+(const Polyfill &value) const
    {
-     Polyfill r = Polyfill(v + value.v);
-     return r;
+     return v + value.v;
    }
 
-   Polyfill operator+=(const Polyfill &value) const
+   Polyfill &operator+=(const Polyfill &value)
    {
-     Polyfill r = Polyfill(v + value.v);
-     return r;
+     v += value.v;
+     return *this;
    }
 
    Polyfill operator*(const Polyfill &value) const
    {
-     Polyfill r = Polyfill(v * value.v);
-     return r;
+     return v * value.v;
    }
 
    Polyfill &operator*=(const Polyfill &value)
@@ -184,10 +167,9 @@ struct Polyfill {
      return *this;
    }
 
-   Polyfill &operator/(const Polyfill &value)
+   Polyfill operator/(const Polyfill &value) const
    {
-     v /= value.v;
-     return *this;
+     return v / value.v;
    }
 
    void set_value (int index, T value)
