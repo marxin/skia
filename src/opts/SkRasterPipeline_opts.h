@@ -1127,11 +1127,10 @@ SI F approx_log2(F x) {
 
     // ... but using the mantissa to refine its error is _much_ better.
     F m = sk_bit_cast<F>((sk_bit_cast<U32>(x) & 0x007fffff) | 0x3f000000);
-    // TODO
     return e
-         - 124.225514990f
-         - m * 1.498030302f
-         - (m + 0.3520887068f) * (1 / 1.725879990f);
+         - F(124.225514990f)
+         -   F(1.498030302f) * m
+         -   F(1.725879990f) / (F(0.3520887068f) + m);
 }
 
 SI F approx_log(F x) {
@@ -1143,8 +1142,8 @@ SI F approx_pow2(F x) {
     F f = fract(x);
     return sk_bit_cast<F>(round(1.0f * (1<<23),
                                 x + 121.274057500f
-                                  - f * 1.490129070f
-                                  + (- f + 4.84252568f) * (1 / 27.728023300f)));
+                                  -   F(1.490129070f) * f
+                                  +  F(27.728023300f) / (F(4.84252568f) - f)));
 }
 
 SI F approx_exp(F x) {
