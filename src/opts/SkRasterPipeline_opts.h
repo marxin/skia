@@ -28,10 +28,6 @@ struct Polyfill {
        __builtin_memcpy(&v, vals.begin(), sizeof(T) * vals.size());
    }
 
-   // Auto-bit-pun from same-sized types.
-//   template <typename U>
-//   /*implicit*/ Polyfill(U x) : v(sk_bit_cast<Vec>(x)) {}
-
    Polyfill(__m256 x): v(sk_bit_cast<Vec>(x)) {}
 
    Polyfill(__m128 x): v(sk_bit_cast<Vec>(x)) {}
@@ -84,16 +80,9 @@ struct Polyfill {
      return *this;
    }
 
-   Polyfill &operator!()
+   BoolVec operator!()
    {
-     // TODO
-//     v = !v;
-     return *this;
-   }
-
-   BoolVec operator==(int k)
-   {
-     return *this == Vec(k);
+     return v == Vec();
    }
 
    Polyfill &operator<<(int k)
@@ -600,9 +589,8 @@ namespace SK_OPTS_NS {
                 high = true;
             }
             if (tail > 0) {
-              // TODO
-//                (*d)[high ? 4 : 0] = *(ptr + 0);
-//                (*d)[high ? 5 : 1] = *(ptr + 1);
+                d->set_value (high ? 4 : 0, *(ptr + 0));
+                d->set_value (high ? 5 : 1, *(ptr + 1));
             }
         } else {
             _0123 = _mm_loadu_si128(((__m128i*)ptr) + 0);
