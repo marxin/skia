@@ -28,9 +28,12 @@ struct Polyfill {
        __builtin_memcpy(&v, vals.begin(), sizeof(T) * vals.size());
    }
 
+   // TODO: use only __m256i
    Polyfill(__m256 x): v(sk_bit_cast<Vec>(x)) {}
+   Polyfill(__m256i x): v(sk_bit_cast<Vec>(x)) {}
 
    Polyfill(__m128 x): v(sk_bit_cast<Vec>(x)) {}
+   Polyfill(__m128i x): v(sk_bit_cast<Vec>(x)) {}
 
    // Auto-bit-pun to same-sized types.
    template <typename U>
@@ -248,9 +251,7 @@ struct Ctx {
 };
 
 
-#if !defined(__clang__)
-    #define JUMPER_IS_SCALAR
-#elif defined(SK_ARM_HAS_NEON)
+#if defined(SK_ARM_HAS_NEON)
     #define JUMPER_IS_NEON
 #elif SK_CPU_SSE_LEVEL >= SK_CPU_SSE_LEVEL_SKX
     #define JUMPER_IS_SKX
