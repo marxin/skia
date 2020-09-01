@@ -59,6 +59,11 @@ struct Polyfill {
      return v + value;
    }
 
+   Polyfill operator+(const int &value) const
+   {
+     return v + value;
+   }
+
    Polyfill operator*(const float &value) const
    {
      return v * value;
@@ -95,9 +100,9 @@ struct Polyfill {
      return v | k;
    }
 
-   BoolVec operator==(const Polyfill &value)
+   friend BoolVec operator==(const Polyfill &lhs, const Polyfill &rhs)
    {
-     return v == value.v;
+     return lhs.v == rhs.v;
    }
 
    BoolVec operator!=(const Polyfill &value)
@@ -145,9 +150,15 @@ struct Polyfill {
      return v - value.v;
    }
 
-   Polyfill operator+(const Polyfill &value) const
+   friend Polyfill operator-(T lhs, const Polyfill &rhs)
    {
-     return v + value.v;
+     return Polyfill(lhs) - rhs;
+   }
+
+   friend Polyfill operator+(Polyfill lhs, const Polyfill &rhs)
+   {
+     lhs += rhs;
+     return lhs;
    }
 
    Polyfill &operator+=(const Polyfill &value)
@@ -156,9 +167,20 @@ struct Polyfill {
      return *this;
    }
 
-   Polyfill operator*(const Polyfill &value) const
+   friend Polyfill operator+(T lhs, const Polyfill &rhs)
    {
-     return v * value.v;
+     return Polyfill(lhs) + rhs;
+   }
+
+   friend Polyfill operator*(Polyfill lhs, const Polyfill &rhs)
+   {
+     lhs *= rhs;
+     return lhs;
+   }
+
+   friend Polyfill operator*(T lhs, const Polyfill &rhs)
+   {
+     return Polyfill(lhs) * rhs;
    }
 
    Polyfill &operator*=(const Polyfill &value)
@@ -167,9 +189,21 @@ struct Polyfill {
      return *this;
    }
 
-   Polyfill operator/(const Polyfill &value) const
+   Polyfill &operator/=(const Polyfill &value)
    {
-     return v / value.v;
+     v /= value.v;
+     return *this;
+   }
+
+   friend Polyfill operator/(Polyfill lhs, const Polyfill &rhs)
+   {
+     lhs /= rhs;
+     return lhs;
+   }
+
+   friend Polyfill operator/(T lhs, const Polyfill &rhs)
+   {
+     return Polyfill(lhs) / rhs;
    }
 
    void set_value (int index, T value)
@@ -1100,27 +1134,27 @@ SI F approx_log2(F x) {
     // ... but using the mantissa to refine its error is _much_ better.
     F m = sk_bit_cast<F>((sk_bit_cast<U32>(x) & 0x007fffff) | 0x3f000000);
     return e
-         - F(124.225514990f)
-         -   F(1.498030302f) * m
-         -   F(1.725879990f) / (F(0.3520887068f) + m);
+         - 124.225514990f
+         -   1.498030302f * m
+         -   1.725879990f / (0.3520887068f + m);
 }
 
 SI F approx_log(F x) {
     const float ln2 = 0.69314718f;
-    return approx_log2(x) * ln2;
+    return ln2 * approx_log2(x);
 }
 
 SI F approx_pow2(F x) {
     F f = fract(x);
     return sk_bit_cast<F>(round(1.0f * (1<<23),
                                 x + 121.274057500f
-                                  -   F(1.490129070f) * f
-                                  +  F(27.728023300f) / (F(4.84252568f) - f)));
+                                  -   1.490129070f * f
+                                  +  27.728023300f / (4.84252568f - f)));
 }
 
 SI F approx_exp(F x) {
     const float log2_e = 1.4426950408889634074f;
-    return approx_pow2(x * log2_e);
+    return approx_pow2(log2_e * x);
 }
 
 SI F approx_powf(F x, F y) {
@@ -1145,7 +1179,7 @@ SI F from_half(U16 h) {
     // Convert to 1-8-23 float with 127 bias, flushing denorm halfs (including zero) to zero.
     auto denorm = (I32)em < I32(0x0400);      // I32 comparison is often quicker, and always safe here.
     return if_then_else(denorm, F(0)
-                              , sk_bit_cast<F>( (s<<16) + (em<<13) + U32((127-15)<<23) ));
+                              , sk_bit_cast<F>( (s<<16) + (em<<13) + ((127-15)<<23) ));
 #endif
 }
 
@@ -1513,9 +1547,9 @@ STAGE(dither, const float* rate) {
     // like 0 and 1 unchanged after rounding.
     F dither = M.convert<F>() * (2/128.0f) - (63/128.0f);
 
-    r += F(*rate)*dither;
-    g += F(*rate)*dither;
-    b += F(*rate)*dither;
+    r += *rate*dither;
+    g += *rate*dither;
+    b += *rate*dither;
 
     r = max(0, min(r, a));
     g = max(0, min(g, a));
@@ -1600,7 +1634,7 @@ STAGE(store_dst, float* ptr) {
     SI F name##_channel(F s, F d, F sa, F da)
 
 // TODO: add to class?
-SI F inv(F x) { return F(1) - x; }
+SI F inv(F x) { return 1.0f - x; }
 SI F two(F x) { return x + x; }
 
 
@@ -1665,8 +1699,8 @@ BLEND_MODE(softlight) {
     //    1. dark src?
     //    2. light src, dark dst?
     //    3. light src, light dst?
-    F darkSrc = d*(sa + (s2 - sa)*(F(1.0f) - m)),     // Used in case 1.
-      darkDst = (m4*m4 + m4)*(m - 1.0f) + F(7.0f)*m,  // Used in case 2.
+    F darkSrc = d*(sa + (s2 - sa)*(1.0f - m)),     // Used in case 1.
+      darkDst = (m4*m4 + m4)*(m - 1.0f) + 7.0f*m,  // Used in case 2.
       liteDst = rcp(rsqrt(m)) - m,                 // Used in case 3.
       liteSrc = d*sa + da*(s2 - sa) * if_then_else(two(two(d)) <= da, darkDst, liteDst); // 2 or 3?
     return s*inv(da) + d*inv(sa) + if_then_else(s2 <= sa, darkSrc, liteSrc);      // 1 or (2 or 3)?
@@ -1874,7 +1908,7 @@ STAGE(premul_dst, Ctx::None) {
 }
 STAGE(unpremul, Ctx::None) {
     float inf = sk_bit_cast<float>(0x7f800000);
-    auto scale = if_then_else(F(1.0f)/a < F(inf), F(1.0f)/a, F(0));
+    auto scale = if_then_else(F(1.0f)/a < F(inf), 1.0f/a, 0);
     r *= scale;
     g *= scale;
     b *= scale;
@@ -1891,17 +1925,17 @@ STAGE(rgb_to_hsl, Ctx::None) {
     F mx = max(r, max(g,b)),
       mn = min(r, min(g,b)),
       d = mx - mn,
-      d_rcp = F(1.0f) / d;
+      d_rcp = 1.0f / d;
 
-    F h = F(1/6.0f) *
+    F h = (1/6.0f) *
           if_then_else(mx == mn, 0,
-          if_then_else(mx ==  r, (g-b)*d_rcp + if_then_else(g < b, 6.0f, F(0)),
+          if_then_else(mx ==  r, (g-b)*d_rcp + if_then_else(g < b, 6.0f, 0),
           if_then_else(mx ==  g, (b-r)*d_rcp + 2.0f,
                                  (r-g)*d_rcp + 4.0f)));
 
     F l = (mx + mn) * 0.5f;
-    F s = if_then_else(mx == mn, 0.0f,
-                       d / if_then_else(l > F(0.5f), F(2.0f)-mx-mn, mx+mn));
+    F s = if_then_else(mx == mn, 0,
+                       d / if_then_else(l > F(0.5f), 2.0f-mx-mn, mx+mn));
 
     r = h;
     g = s;
@@ -1913,7 +1947,7 @@ STAGE(hsl_to_rgb, Ctx::None) {
     F h = r,
       s = g,
       l = b,
-      c = (F(1.0f) - abs_(F(2.0f) * l - 1.0f)) * s;
+      c = (1.0f - abs_(2.0f * l - 1.0f)) * s;
 
     auto hue_to_rgb = [&](F hue) {
         F q = clamp_01(abs_(fract(hue) * 6.0f - 3.0f) - 1.0f);
@@ -2110,8 +2144,8 @@ STAGE(HLGinvish, const skcms_TransferFunction* ctx) {
         const float R = ctx->a, G = ctx->b,
                     a = ctx->c, b = ctx->d, c = ctx->e;
 
-        F r = if_then_else(v <= F(1), F(R) * approx_powf(v, G)
-                                 , F(a) * approx_log(v - b) + c);
+        F r = if_then_else(v <= F(1), R * approx_powf(v, G)
+                                 , a * approx_log(v - b) + c);
 
         return apply_sign(r, sign);
     };
@@ -2466,10 +2500,10 @@ STAGE(load_f32_dst, const SkRasterPipeline_MemoryCtx* ctx) {
 STAGE(gather_f32, const SkRasterPipeline_GatherCtx* ctx) {
     const float* ptr;
     U32 ix = ix_and_ptr(&ptr, ctx, r,g);
-    r = gather(ptr, U32(4u)*ix + U32(0u));
-    g = gather(ptr, U32(4u)*ix + U32(1u));
-    b = gather(ptr, U32(4u)*ix + U32(2u));
-    a = gather(ptr, U32(4u)*ix + U32(3u));
+    r = gather(ptr, 4u*ix + 0);
+    g = gather(ptr, 4u*ix + 1);
+    b = gather(ptr, 4u*ix + 2);
+    a = gather(ptr, 4u*ix + 3);
 }
 STAGE(store_f32, const SkRasterPipeline_MemoryCtx* ctx) {
     auto ptr = ptr_at_xy<float>(ctx, 4*dx,4*dy);
@@ -2493,7 +2527,7 @@ SI F exclusive_repeat(F v, const SkRasterPipeline_TileCtx* ctx) {
 SI F exclusive_mirror(F v, const SkRasterPipeline_TileCtx* ctx) {
     auto limit = ctx->scale;
     auto invLimit = ctx->invScale;
-    return abs_( (v-limit) - F(limit+limit)*floor_((v-limit)*(invLimit*0.5f)) - limit );
+    return abs_( (v-limit) - (limit+limit)*floor_((v-limit)*(invLimit*0.5f)) - limit );
 }
 // Tile x or y to [0,limit) == [0,limit - 1 ulp] (think, sampling from images).
 // The gather stages will hard clamp the output of these stages to [0,limit)...
@@ -2682,15 +2716,15 @@ STAGE(xy_to_unit_angle, Ctx::None) {
     // A float optimized polynomial was generated using the following command.
     // P1 = fpminimax((1/(2*Pi))*atan(x),[|1,3,5,7|],[|24...|],[2^(-40),1],relative);
     F phi = slope
-             * (F(0.15912117063999176025390625f)     + s
-             * (F(-5.185396969318389892578125e-2f)   + s
-             * (F(2.476101927459239959716796875e-2f) + s
+             * (0.15912117063999176025390625f     + s
+             * (-5.185396969318389892578125e-2f   + s
+             * (2.476101927459239959716796875e-2f + s
              * (-7.0547382347285747528076171875e-3f))));
 
-    phi = if_then_else(xabs < yabs, F(1.0f/4.0f) - phi, phi);
-    phi = if_then_else(X < F(0.0f)   , F(1.0f/2.0f) - phi, phi);
-    phi = if_then_else(Y < F(0.0f)   , F(1.0f) - phi     , phi);
-    phi = if_then_else(phi != phi , F(0.0f)              , phi);  // Check for NaN.
+    phi = if_then_else(xabs < yabs, 1.0f/4.0f - phi, phi);
+    phi = if_then_else(X < F(0.0f)   , 1.0f/2.0f - phi, phi);
+    phi = if_then_else(Y < F(0.0f)   , 1.0f - phi     , phi);
+    phi = if_then_else(phi != phi , 0              , phi);  // Check for NaN.
     r = phi;
 }
 
@@ -2736,7 +2770,7 @@ STAGE(alter_2pt_conical_compensate_focal, const SkRasterPipeline_2PtConicalCtx* 
 
 STAGE(alter_2pt_conical_unswap, Ctx::None) {
     F& t = r;
-    t = F(1) - t;
+    t = 1.0f - t;
 }
 
 STAGE(mask_2pt_conical_nan, SkRasterPipeline_2PtConicalCtx* c) {
@@ -2797,7 +2831,7 @@ SI void bilinear_x(SkRasterPipeline_SamplerCtx* ctx, F* x) {
     F fx = sk_unaligned_load<F>(ctx->fx);
 
     F scalex;
-    if (kScale == -1) { scalex = F(1.0f) - fx; }
+    if (kScale == -1) { scalex = 1.0f - fx; }
     if (kScale == +1) { scalex =        fx; }
     sk_unaligned_store(ctx->scalex, scalex);
 }
@@ -2807,7 +2841,7 @@ SI void bilinear_y(SkRasterPipeline_SamplerCtx* ctx, F* y) {
     F fy = sk_unaligned_load<F>(ctx->fy);
 
     F scaley;
-    if (kScale == -1) { scaley = F(1.0f) - fy; }
+    if (kScale == -1) { scaley = 1.0f - fy; }
     if (kScale == +1) { scaley =        fy; }
     sk_unaligned_store(ctx->scaley, scaley);
 }
@@ -2839,8 +2873,8 @@ SI void bicubic_x(SkRasterPipeline_SamplerCtx* ctx, F* x) {
     F fx = sk_unaligned_load<F>(ctx->fx);
 
     F scalex;
-    if (kScale == -3) { scalex = bicubic_far (F(1.0f) - fx); }
-    if (kScale == -1) { scalex = bicubic_near(F(1.0f) - fx); }
+    if (kScale == -3) { scalex = bicubic_far (1.0f - fx); }
+    if (kScale == -1) { scalex = bicubic_near(1.0f - fx); }
     if (kScale == +1) { scalex = bicubic_near(       fx); }
     if (kScale == +3) { scalex = bicubic_far (       fx); }
     sk_unaligned_store(ctx->scalex, scalex);
@@ -2851,8 +2885,8 @@ SI void bicubic_y(SkRasterPipeline_SamplerCtx* ctx, F* y) {
     F fy = sk_unaligned_load<F>(ctx->fy);
 
     F scaley;
-    if (kScale == -3) { scaley = bicubic_far (F(1.0f) - fy); }
-    if (kScale == -1) { scaley = bicubic_near(F(1.0f) - fy); }
+    if (kScale == -3) { scaley = bicubic_far (1.0f - fy); }
+    if (kScale == -1) { scaley = bicubic_near(1.0f - fy); }
     if (kScale == +1) { scaley = bicubic_near(       fy); }
     if (kScale == +3) { scaley = bicubic_far (       fy); }
     sk_unaligned_store(ctx->scaley, scaley);
@@ -2950,16 +2984,16 @@ SI void sampler(const SkRasterPipeline_SamplerCtx2* ctx,
 STAGE(bilinear, const SkRasterPipeline_SamplerCtx2* ctx) {
     F x = r, fx = fract(x + 0.5f),
       y = g, fy = fract(y + 0.5f);
-    const F wx[] = {F(1) - fx, fx};
-    const F wy[] = {F(1) - fy, fy};
+    const F wx[] = {1.0f - fx, fx};
+    const F wy[] = {1.0f - fy, fy};
 
     sampler(ctx, x,y, wx,wy, &r,&g,&b,&a);
 }
 STAGE(bicubic, SkRasterPipeline_SamplerCtx2* ctx) {
     F x = r, fx = fract(x + 0.5f),
       y = g, fy = fract(y + 0.5f);
-    const F wx[] = { bicubic_far(F(1)-fx), bicubic_near(F(1)-fx), bicubic_near(fx), bicubic_far(fx) };
-    const F wy[] = { bicubic_far(F(1)-fy), bicubic_near(F(1)-fy), bicubic_near(fy), bicubic_far(fy) };
+    const F wx[] = { bicubic_far(1.0f-fx), bicubic_near(1.0f-fx), bicubic_near(fx), bicubic_far(fx) };
+    const F wy[] = { bicubic_far(1.0f-fy), bicubic_near(1.0f-fy), bicubic_near(fy), bicubic_far(fy) };
 
     sampler(ctx, x,y, wx,wy, &r,&g,&b,&a);
 }
@@ -2995,8 +3029,8 @@ STAGE(bilerp_clamp_8888, const SkRasterPipeline_GatherCtx* ctx) {
         // are combined in direct proportion to their area overlapping that logical query pixel.
         // At positive offsets, the x-axis contribution to that rectangle is fx,
         // or (1-fx) at negative x.  Same deal for y.
-        F sx = (dx > 0) ? fx : F(1) - fx,
-          sy = (dy > 0) ? fy : F(1) - fy,
+        F sx = (dx > 0) ? fx : 1.0f - fx,
+          sy = (dy > 0) ? fy : 1.0f - fy,
           area = sx * sy;
 
         r += sr * area;
@@ -3021,11 +3055,11 @@ STAGE(bicubic_clamp_8888, const SkRasterPipeline_GatherCtx* ctx) {
     r = g = b = a = 0;
 
     const F scaley[4] = {
-        bicubic_far (F(1.0f) - fy), bicubic_near(F(1) - fy),
+        bicubic_far (1.0f - fy), bicubic_near(1.0f - fy),
         bicubic_near(       fy), bicubic_far (       fy),
     };
     const F scalex[4] = {
-        bicubic_far (F(1.0f) - fx), bicubic_near(F(1) - fx),
+        bicubic_far (1.0f - fx), bicubic_near(1.0f - fx),
         bicubic_near(       fx), bicubic_far (       fx),
     };
 
@@ -3047,9 +3081,9 @@ STAGE(bicubic_clamp_8888, const SkRasterPipeline_GatherCtx* ctx) {
             b = mad(scale, sb, b);
             a = mad(scale, sa, a);
 
-            sample_x += F(1);
+            sample_x += 1;
         }
-        sample_y += F(1);
+        sample_y += 1;
     }
 }
 
