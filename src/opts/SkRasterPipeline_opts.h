@@ -205,16 +205,19 @@ struct Polyfill {
      return Polyfill(lhs) / rhs;
    }
 
-   // TODO: unfortunatelly Clang does not support reference operator[]
-   // T& operator[](int k)       { return v[k]; }
-   // https://bugs.llvm.org/show_bug.cgi?id=47379
-   void set_value (int index, T value)
+   struct PolyfillReference
    {
-     v[index] = value;
-   }
+     PolyfillReference(Polyfill<T, N> &ref, int i): reference(ref), index(i) {}
+
+     operator T() { return reference.v[index]; }
+     void operator=(T value) { reference.v[index] = value; }
+
+     Polyfill<T, N> &reference;
+     int index;
+   };
 
    // Forward lane access to v.
-   T operator[](int k) { return v[k]; }
+   PolyfillReference operator[](int k) { return PolyfillReference (*this, k); }
 };
 
 // Every function in this file should be marked static and inline using SI.
@@ -609,8 +612,8 @@ namespace SK_OPTS_NS {
                 high = true;
             }
             if (tail > 0) {
-                d->set_value (high ? 4 : 0, *(ptr + 0));
-                d->set_value (high ? 5 : 1, *(ptr + 1));
+                (*d)[high ? 4 : 0] = *(ptr + 0);
+                (*d)[high ? 5 : 1] = *(ptr + 1);
             }
         } else {
             _0123 = _mm_loadu_si128(((__m128i*)ptr) + 0);
@@ -1330,11 +1333,11 @@ SI V load(const T* src, size_t tail) {
     if (__builtin_expect(tail, 0)) {
         V v{};  // Any inactive lanes are zeroed.
         switch (tail) {
-            case 7: v.set_value(6, src[6]); [[fallthrough]];
-            case 6: v.set_value(5, src[5]); [[fallthrough]];
-            case 5: v.set_value(4, src[4]); [[fallthrough]];
+            case 7: v[6] = src[6]; [[fallthrough]];
+            case 6: v[5] = src[5]; [[fallthrough]];
+            case 5: v[4] = src[4]; [[fallthrough]];
             case 4: memcpy(&v, src, 4*sizeof(T)); break;
-            case 3: v.set_value(2, src[2]); [[fallthrough]];
+            case 3: v[2] = src[2]; [[fallthrough]];
             case 2: memcpy(&v, src, 2*sizeof(T)); break;
             case 1: memcpy(&v, src, 1*sizeof(T)); break;
         }
@@ -1350,74 +1353,13 @@ SI void store(T* dst, V v, size_t tail) {
     __builtin_assume(tail < N);
     if (__builtin_expect(tail, 0)) {
         switch (tail) {
-            case 7: dst->set_value(6, v[6]); [[fallthrough]];
-            case 6: dst->set_value(5, v[5]); [[fallthrough]];
-            case 5: dst->set_value(4, v[4]); [[fallthrough]];
+            case 7: dst[6] = v[6]; [[fallthrough]];
+            case 6: dst[5] = v[5]; [[fallthrough]];
+            case 5: dst[4] = v[4]; [[fallthrough]];
             case 4: memcpy(dst, &v, 4*sizeof(T)); break;
-            case 3: dst->set_value(2, v[2]); [[fallthrough]];
+            case 3: dst[2] = v[2]; [[fallthrough]];
             case 2: memcpy(dst, &v, 2*sizeof(T)); break;
             case 1: memcpy(dst, &v, 1*sizeof(T)); break;
-        }
-        return;
-    }
-#endif
-    sk_unaligned_store(dst, v);
-}
-
-template <typename V>
-SI void store(uint32_t * dst, V v, size_t tail) {
-#if !defined(JUMPER_IS_SCALAR)
-    __builtin_assume(tail < N);
-    if (__builtin_expect(tail, 0)) {
-        switch (tail) {
-            case 7: dst[6] = v[6]; [[fallthrough]];
-            case 6: dst[5] = v[5]; [[fallthrough]];
-            case 5: dst[4] = v[4]; [[fallthrough]];
-            case 4: memcpy(dst, &v, 4*sizeof(uint32_t)); break;
-            case 3: dst[2] = v[2]; [[fallthrough]];
-            case 2: memcpy(dst, &v, 2*sizeof(uint32_t)); break;
-            case 1: memcpy(dst, &v, 1*sizeof(uint32_t)); break;
-        }
-        return;
-    }
-#endif
-    sk_unaligned_store(dst, v);
-}
-
-template <typename V>
-SI void store(uint8_t * dst, V v, size_t tail) {
-#if !defined(JUMPER_IS_SCALAR)
-    __builtin_assume(tail < N);
-    if (__builtin_expect(tail, 0)) {
-        switch (tail) {
-            case 7: dst[6] = v[6]; [[fallthrough]];
-            case 6: dst[5] = v[5]; [[fallthrough]];
-            case 5: dst[4] = v[4]; [[fallthrough]];
-            case 4: memcpy(dst, &v, 4*sizeof(uint8_t)); break;
-            case 3: dst[2] = v[2]; [[fallthrough]];
-            case 2: memcpy(dst, &v, 2*sizeof(uint8_t)); break;
-            case 1: memcpy(dst, &v, 1*sizeof(uint8_t)); break;
-        }
-        return;
-    }
-#endif
-    sk_unaligned_store(dst, v);
-}
-
-
-template <typename V>
-SI void store(uint16_t * dst, V v, size_t tail) {
-#if !defined(JUMPER_IS_SCALAR)
-    __builtin_assume(tail < N);
-    if (__builtin_expect(tail, 0)) {
-        switch (tail) {
-            case 7: dst[6] = v[6]; [[fallthrough]];
-            case 6: dst[5] = v[5]; [[fallthrough]];
-            case 5: dst[4] = v[4]; [[fallthrough]];
-            case 4: memcpy(dst, &v, 4*sizeof(uint16_t)); break;
-            case 3: dst[2] = v[2]; [[fallthrough]];
-            case 2: memcpy(dst, &v, 2*sizeof(uint16_t)); break;
-            case 1: memcpy(dst, &v, 1*sizeof(uint16_t)); break;
         }
         return;
     }
