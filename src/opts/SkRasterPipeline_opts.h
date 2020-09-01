@@ -105,29 +105,29 @@ struct Polyfill {
      return lhs.v == rhs.v;
    }
 
-   BoolVec operator!=(const Polyfill &value)
+   BoolVec operator!=(const Polyfill &value) const
    {
      return v != value.v;
    }
 
-   BoolVec operator>(const Polyfill &value)
-   {
-     return v > value.v;
-   }
-
-   BoolVec operator>=(const Polyfill &value)
-   {
-     return v >= value.v;
-   }
-
-   BoolVec operator<(const Polyfill &value)
+   BoolVec operator<(const Polyfill &value) const
    {
      return v < value.v;
    }
 
-   BoolVec operator<=(const Polyfill &value)
+   BoolVec operator>(const Polyfill &value) const
    {
-     return v <= value.v;
+     return value < *this;
+   }
+
+   BoolVec operator>=(const Polyfill &value) const
+   {
+     return *this < value == 0;
+   }
+
+   BoolVec operator<=(const Polyfill &value) const
+   {
+     return *this > value == 0;
    }
 
    Polyfill operator&(const Polyfill &value) const
