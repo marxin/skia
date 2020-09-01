@@ -205,6 +205,9 @@ struct Polyfill {
      return Polyfill(lhs) / rhs;
    }
 
+   // TODO: unfortunatelly Clang does not support reference operator[]
+   // T& operator[](int k)       { return v[k]; }
+   // https://bugs.llvm.org/show_bug.cgi?id=47379
    void set_value (int index, T value)
    {
      v[index] = value;
