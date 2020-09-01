@@ -20,28 +20,27 @@ struct Polyfill {
 
    Vec v;
    Polyfill() = default;
+
    // Auto-broadcast from scalar.
-   /*implicit*/ Polyfill(T x) : v(Vec() + x) {}
+   Polyfill(T x) : v(Vec() + x) {}
 
    Polyfill(Vec vec): v(vec) {}
 
    // Initialize using braces, Polyfill<...> foo = { 0,1,2,3, ...}.
-   /*implicit*/ Polyfill(std::initializer_list<T> vals) {
+   Polyfill(std::initializer_list<T> vals) {
        __builtin_memcpy(&v, vals.begin(), sizeof(T) * vals.size());
    }
 
    // Auto-bit-pun to same-sized types.
    template <typename U>
-   /*implicit*/ operator U() const { return sk_bit_cast<U>(v); }
+   operator U() const { return sk_bit_cast<U>(v); }
 
    template <class U>
    U convert() { return U(__builtin_convertvector(v, typename U::Vec)); }
 
    Polyfill operator&(const int &mask) const
    {
-     Polyfill r = *this;
-     r.v &= mask;
-     return r;
+     return *this & Polyfill(mask);
    }
 
    Polyfill operator-(const float &value) const
