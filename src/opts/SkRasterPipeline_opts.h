@@ -1329,7 +1329,6 @@ static void start_pipeline(size_t dx, size_t dy, size_t xlimit, size_t ylimit, v
 template <typename V, typename T>
 SI V load(const T* src, size_t tail) {
 #if !defined(JUMPER_IS_SCALAR)
-    __builtin_assume(tail < N);
     if (__builtin_expect(tail, 0)) {
         V v{};  // Any inactive lanes are zeroed.
         switch (tail) {
@@ -1350,7 +1349,6 @@ SI V load(const T* src, size_t tail) {
 template <typename V, typename T>
 SI void store(T* dst, V v, size_t tail) {
 #if !defined(JUMPER_IS_SCALAR)
-    __builtin_assume(tail < N);
     if (__builtin_expect(tail, 0)) {
         switch (tail) {
             case 7: dst[6] = v[6]; [[fallthrough]];
